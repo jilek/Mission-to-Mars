@@ -17,11 +17,13 @@ def scrape_all():
 
     # Run all scraping functions and store results in a dictionary
     data = {
-        "news_title": news_title,
+        "news_title"    : news_title,
         "news_paragraph": news_paragraph,
         "featured_image": featured_image(browser),
-        "facts": mars_facts(),
-        "last_modified": dt.datetime.now()
+        "facts"         : mars_facts(),
+        "factsother"    : mars_facts(False),
+        "last_modified" : dt.datetime.now(),
+        "hemispheres"   : full_sized_hemis(browser)
     }
 
     # Stop webdriver and return data
@@ -83,7 +85,7 @@ def featured_image(browser):
 
     return img_url
 
-def mars_facts():
+def mars_facts(striped=True):
     # Add try/except for error handling
     try:
         # Use 'read_html' to scrape the facts table into a dataframe
@@ -97,7 +99,48 @@ def mars_facts():
     df.set_index('Description', inplace=True)
 
     # Convert dataframe into HTML format, add bootstrap
-    return df.to_html(classes="table table-striped")
+    if(striped): 
+        return df.to_html(classes="table table-striped")
+    else:
+        df2 = df
+        #return df2.to_html(classes="table table-striped table-dark")
+        return df2.to_html(classes="table-sm table-dark table-danger")
+
+def full_sized_hemis(browser):
+    url = 'https://marshemispheres.com/'
+    browser.visit(url)
+
+    hemisphere_image_urls = []
+    html = browser.html
+    parse_tree = soup(html, 'html.parser')
+
+    results = parse_tree.find('div', class_="result-list")
+    items = results.find_all('div', class_='item')
+    for item in items:
+        href = item.find('a')['href']
+        title = item.find('h3').text
+        full_url = f"{url}{href}"
+        browser.visit(full_url)
+        
+        html2 = browser.html
+        parse_tree2 = soup(html2, 'html.parser')
+        downloads = parse_tree2.find('div', class_="downloads")
+        links = downloads.find_all('li')
+        
+        # the smaller 'sample' image -- I use this one, since the browser won't
+        # directly open .tif files (it uses a helper to open them in a separate window)
+        sample = links[0].find('a')['href']
+        
+        # the original 'full-size' image -- I do not use this one (see 'sample' above)
+        original = links[1].find('a')['href']
+        
+        data = {'img_url': f"{url}{sample}", 'title': title}
+        hemisphere_image_urls.append(data)
+
+        browser.back()
+
+    return hemisphere_image_urls
+
 
 if __name__ == "__main__":
 
